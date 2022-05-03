@@ -21,7 +21,7 @@ class Cat(db.Model):
 
   def serialize(self):
     cat = {c.name: getattr(self, c.name) for c in self.__table__.columns}
-    feedings = [feedings.serialize() for feeding in self.feedings]
+    feedings = [feeding.serialize() for feeding in self.feedings]
     cat["feedings"] = feedings
     return cat
   

@@ -3,9 +3,11 @@ from api.middleware import login_required, read_token
 
 from api.models.db import db
 from api.models.cat import Cat
+from api.models.feeding import Feeding
 
 cats = Blueprint('cats', 'cats')
 
+# Creates a cat
 @cats.route('/', methods=["POST"])
 @login_required
 def create():
@@ -17,17 +19,22 @@ def create():
   db.session.commit()
   return jsonify(cat.serialize()), 201
 
+# Shows all cats
 @cats.route('/', methods=["GET"])
 def index():
   cats = Cat.query.all()
   return jsonify([cat.serialize() for cat in cats]), 200
 
+# Shows a cat
 @cats.route('/<id>', methods=["GET"])
 def show(id):
   cat = Cat.query.filter_by(id=id).first()
   cat_data = cat.serialize()
+
+  cat_data['fed'] = cat.fed_for_today()
   return jsonify(cat=cat_data), 200
 
+# Updates a cat
 @cats.route('/<id>', methods=["PUT"])
 @login_required
 def update(id):
@@ -44,6 +51,7 @@ def update(id):
   db.session.commit()
   return jsonify(cat.serialize()), 200
 
+# Deletes a cat
 @cats.route("/<id>", methods=["DELETE"])
 @login_required
 def delete(id):
@@ -56,3 +64,26 @@ def delete(id):
   db.session.delete(cat)
   db.session.commit() 
   return jsonify(message="Success"), 200
+
+# Adds feedings for a cat
+@cats.route('/<id>/feedings', methods=['POST'])
+@login_required
+def add_feeding(id):
+  data = request.get_json()
+  data['cat_id'] = id
+
+  profile = read_token(request)
+  cat = Cat.query.filter_by(id=id).first()
+
+  if cat.profile_id != profile["id"]:
+    return "Forbidden", 403
+  
+  feeding = Feeding(**data)
+
+  db.session.add(feeding)
+  db.session.commit()
+
+  cat_data = cat.serialize()
+  cat_data['fed'] = cat.fed_for_today()
+
+  return jsonify(cat_data), 201
