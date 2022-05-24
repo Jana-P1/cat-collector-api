@@ -32,7 +32,10 @@ def show(id):
   cat_data = cat.serialize()
 
   cat_data['fed'] = cat.fed_for_today()
-  return jsonify(cat=cat_data), 200
+
+  toys = Toy.query.filter(Toy.id.notin_([toy.id for toy in cat.toys])).all()
+  toys=[toy.serialize() for toy in toys]
+  return jsonify(cat=cat_data, available_toys=toys), 200
 
 # Updates a cat
 @cats.route('/<id>', methods=["PUT"])
@@ -87,3 +90,24 @@ def add_feeding(id):
   cat_data['fed'] = cat.fed_for_today()
 
   return jsonify(cat_data), 201
+
+@cats.route('/<cat_id>/toys/<toy_id>', methods=["LINK"])
+@login_required
+def assoc_toy(cat_id, toy_id):
+  data = { "cat_id": cat_id, "toy_id": toy_id }
+  profile = read_token(request)
+  cat = Cat.query.filter_by(id=cat_id).first()
+
+  if cat.profile.id != profile["id"]:
+    return 'Forbidden', 403
+  
+  assoc = Association(**data)
+  db.session.add(assoc)
+  db.session.commit()
+
+  cat = Cat.query.filter_by(id=cat_id).first()
+  return jsonify(cat.serialize()), 201
+
+@cats.errorhandler(Exception)          
+def basic_error(err):
+  return jsonify(err=str(err)), 500
